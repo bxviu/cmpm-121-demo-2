@@ -2,7 +2,7 @@ import "./style.css";
 
 const app: HTMLDivElement = document.querySelector("#app")!;
 
-const gameName = "Colorful Canvas";
+const gameName = "Colorful? Canvas";
 
 document.title = gameName;
 
@@ -23,6 +23,7 @@ app.append(drawingArea);
 const cursor = { active: false, x: origin, y: origin };
 
 const paths: [[{ x?: number; y?: number }]] = [[{}]];
+const redoPaths: [[{ x?: number; y?: number }]] = [[{}]];
 let currentPath: [{ x?: number; y?: number }] = [{}];
 const drawEvent = new Event("drawing-changed");
 
@@ -40,6 +41,7 @@ drawingArea.addEventListener("mousemove", (e) => {
     cursor.x = e.offsetX;
     cursor.y = e.offsetY;
     currentPath.push({ x: cursor.x, y: cursor.y });
+    redoPaths.splice(0, redoPaths.length);
     drawingArea.dispatchEvent(drawEvent);
   }
 });
@@ -66,11 +68,35 @@ drawingArea.addEventListener("drawing-changed", () => {
   }
 });
 
+const menu = document.createElement("div");
+app.append(menu);
+
 const clearButton = document.createElement("button");
 clearButton.innerHTML = "clear";
-app.append(clearButton);
+menu.append(clearButton);
 
 clearButton.addEventListener("click", () => {
   paths.splice(0, paths.length);
+  redoPaths.splice(0, redoPaths.length);
   ctx.clearRect(origin, origin, drawingArea.width, drawingArea.height);
+});
+
+const undoButton = document.createElement("button");
+undoButton.innerHTML = "undo";
+menu.append(undoButton);
+undoButton.addEventListener("click", () => {
+  if (paths.length > 0) {
+    redoPaths.push(paths.pop()!);
+    drawingArea.dispatchEvent(drawEvent);
+  }
+});
+
+const redoButton = document.createElement("button");
+redoButton.innerHTML = "redo";
+menu.append(redoButton);
+redoButton.addEventListener("click", () => {
+  if (redoPaths.length > 0) {
+    paths.push(redoPaths.pop()!);
+    drawingArea.dispatchEvent(drawEvent);
+  }
 });
