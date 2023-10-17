@@ -17,40 +17,53 @@ drawingArea.width = dimension;
 drawingArea.height = dimension;
 
 const ctx = drawingArea.getContext("2d")!;
-// ctx.fillStyle = "white";
-// ctx.fillRect(origin, origin, dimension, dimension);
 
 app.append(drawingArea);
 
 const cursor = { active: false, x: origin, y: origin };
 
-// const paths = [];
+const paths: [[{ x?: number; y?: number }]] = [[{}]];
+let currentPath: [{ x?: number; y?: number }] = [{}];
+const drawEvent = new Event("drawing-changed");
 
 drawingArea.addEventListener("mousedown", (e) => {
   cursor.active = true;
   cursor.x = e.offsetX;
   cursor.y = e.offsetY;
+  paths.push(currentPath);
+  currentPath.push({ x: cursor.x, y: cursor.y });
+  drawingArea.dispatchEvent(drawEvent);
 });
-
-// drawingArea.onmousedown = (e) => {
-//   cursor.active = true;
-//   cursor.x = e.offsetX;
-//   cursor.y = e.offsetY;
-// };
 
 drawingArea.addEventListener("mousemove", (e) => {
   if (cursor.active) {
-    ctx.beginPath();
-    ctx.moveTo(cursor.x, cursor.y);
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
     cursor.x = e.offsetX;
     cursor.y = e.offsetY;
+    currentPath.push({ x: cursor.x, y: cursor.y });
+    drawingArea.dispatchEvent(drawEvent);
   }
 });
 
 drawingArea.addEventListener("mouseup", () => {
   cursor.active = false;
+  currentPath = [{}];
+  drawingArea.dispatchEvent(drawEvent);
+});
+
+drawingArea.addEventListener("drawing-changed", () => {
+  console.log("rec");
+  ctx.clearRect(origin, origin, drawingArea.width, drawingArea.height);
+  for (const line of paths) {
+    if (line.length > 1) {
+      ctx.beginPath();
+      const { x, y } = line[0];
+      ctx.moveTo(x!, y!);
+      for (const { x, y } of line) {
+        ctx.lineTo(x!, y!);
+      }
+      ctx.stroke();
+    }
+  }
 });
 
 const clearButton = document.createElement("button");
@@ -58,5 +71,6 @@ clearButton.innerHTML = "clear";
 app.append(clearButton);
 
 clearButton.addEventListener("click", () => {
+  paths.splice(0, paths.length);
   ctx.clearRect(origin, origin, drawingArea.width, drawingArea.height);
 });
