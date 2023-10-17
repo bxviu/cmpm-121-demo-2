@@ -79,3 +79,9 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+canvas {
+  filter: drop-shadow(10px 15px 4px #111112);
+  border-radius: 30px;
+  border: 1px solid #000;
+}
