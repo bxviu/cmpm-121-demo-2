@@ -22,17 +22,39 @@ app.append(drawingArea);
 
 const cursor = { active: false, x: origin, y: origin };
 
-const paths: [[{ x?: number; y?: number }]] = [[{}]];
-const redoPaths: [[{ x?: number; y?: number }]] = [[{}]];
-let currentPath: [{ x?: number; y?: number }] = [{}];
+const commands: LineCommand[] = [];
+const redoCommands: LineCommand[] = [];
+let currentLineCommand: LineCommand | undefined = undefined;
 const drawEvent = new Event("drawing-changed");
+
+class LineCommand {
+  points: [{ x?: number; y?: number }];
+  constructor(x: number, y: number) {
+    this.points = [{ x, y }];
+  }
+  display(context: CanvasRenderingContext2D) {
+    context.strokeStyle = "black";
+    // ctx.strokeWidth = 4;
+    context.beginPath();
+    const { x, y } = this.points[0];
+    context.moveTo(x!, y!);
+    for (const { x, y } of this.points) {
+      context.lineTo(x!, y!);
+    }
+    context.stroke();
+  }
+  drag(x: number, y: number) {
+    this.points.push({ x, y });
+  }
+}
 
 drawingArea.addEventListener("mousedown", (e) => {
   cursor.active = true;
   cursor.x = e.offsetX;
   cursor.y = e.offsetY;
-  paths.push(currentPath);
-  currentPath.push({ x: cursor.x, y: cursor.y });
+  currentLineCommand = new LineCommand(e.offsetX, e.offsetY);
+  commands.push(currentLineCommand);
+  redoCommands.splice(0, redoCommands.length);
   drawingArea.dispatchEvent(drawEvent);
 });
 
@@ -40,32 +62,20 @@ drawingArea.addEventListener("mousemove", (e) => {
   if (cursor.active) {
     cursor.x = e.offsetX;
     cursor.y = e.offsetY;
-    currentPath.push({ x: cursor.x, y: cursor.y });
-    redoPaths.splice(0, redoPaths.length);
+    currentLineCommand!.drag(cursor.x, cursor.y);
     drawingArea.dispatchEvent(drawEvent);
   }
 });
 
 drawingArea.addEventListener("mouseup", () => {
   cursor.active = false;
-  currentPath = [{}];
+  currentLineCommand = undefined;
   drawingArea.dispatchEvent(drawEvent);
 });
 
 drawingArea.addEventListener("drawing-changed", () => {
-  console.log("rec");
   ctx.clearRect(origin, origin, drawingArea.width, drawingArea.height);
-  for (const line of paths) {
-    if (line.length > 1) {
-      ctx.beginPath();
-      const { x, y } = line[0];
-      ctx.moveTo(x!, y!);
-      for (const { x, y } of line) {
-        ctx.lineTo(x!, y!);
-      }
-      ctx.stroke();
-    }
-  }
+  commands.forEach((cmd) => cmd.display(ctx));
 });
 
 const menu = document.createElement("div");
@@ -76,8 +86,8 @@ clearButton.innerHTML = "clear";
 menu.append(clearButton);
 
 clearButton.addEventListener("click", () => {
-  paths.splice(0, paths.length);
-  redoPaths.splice(0, redoPaths.length);
+  commands.splice(0, commands.length);
+  redoCommands.splice(0, redoCommands.length);
   ctx.clearRect(origin, origin, drawingArea.width, drawingArea.height);
 });
 
@@ -85,8 +95,8 @@ const undoButton = document.createElement("button");
 undoButton.innerHTML = "undo";
 menu.append(undoButton);
 undoButton.addEventListener("click", () => {
-  if (paths.length > 0) {
-    redoPaths.push(paths.pop()!);
+  if (commands.length > 0) {
+    redoCommands.push(commands.pop()!);
     drawingArea.dispatchEvent(drawEvent);
   }
 });
@@ -95,8 +105,8 @@ const redoButton = document.createElement("button");
 redoButton.innerHTML = "redo";
 menu.append(redoButton);
 redoButton.addEventListener("click", () => {
-  if (redoPaths.length > 0) {
-    paths.push(redoPaths.pop()!);
+  if (redoCommands.length > 0) {
+    commands.push(redoCommands.pop()!);
     drawingArea.dispatchEvent(drawEvent);
   }
 });
