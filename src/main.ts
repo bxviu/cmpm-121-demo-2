@@ -27,14 +27,20 @@ const redoCommands: LineCommand[] = [];
 let currentLineCommand: LineCommand | undefined = undefined;
 const drawEvent = new Event("drawing-changed");
 
+const thinMarkerVal = 1;
+const thickMarkerVal = 4;
+let currentThickness = thinMarkerVal;
+
 class LineCommand {
   points: [{ x?: number; y?: number }];
-  constructor(x: number, y: number) {
+  thickness: number;
+  constructor(x: number, y: number, thickness = thinMarkerVal) {
     this.points = [{ x, y }];
+    this.thickness = thickness;
   }
   display(context: CanvasRenderingContext2D) {
     context.strokeStyle = "black";
-    // ctx.strokeWidth = 4;
+    context.lineWidth = this.thickness;
     context.beginPath();
     const { x, y } = this.points[0];
     context.moveTo(x!, y!);
@@ -52,7 +58,7 @@ drawingArea.addEventListener("mousedown", (e) => {
   cursor.active = true;
   cursor.x = e.offsetX;
   cursor.y = e.offsetY;
-  currentLineCommand = new LineCommand(e.offsetX, e.offsetY);
+  currentLineCommand = new LineCommand(e.offsetX, e.offsetY, currentThickness);
   commands.push(currentLineCommand);
   redoCommands.splice(0, redoCommands.length);
   drawingArea.dispatchEvent(drawEvent);
@@ -109,4 +115,23 @@ redoButton.addEventListener("click", () => {
     commands.push(redoCommands.pop()!);
     drawingArea.dispatchEvent(drawEvent);
   }
+});
+
+const thinMarkerButton = document.createElement("button");
+thinMarkerButton.innerHTML = "Thin";
+thinMarkerButton.id = "selectedTool";
+menu.append(thinMarkerButton);
+thinMarkerButton.addEventListener("click", () => {
+  currentThickness = thinMarkerVal;
+  thinMarkerButton.id = "selectedTool";
+  thickMarkerButton.id = "";
+});
+
+const thickMarkerButton = document.createElement("button");
+thickMarkerButton.innerHTML = "Thick";
+menu.append(thickMarkerButton);
+thickMarkerButton.addEventListener("click", () => {
+  currentThickness = thickMarkerVal;
+  thickMarkerButton.id = "selectedTool";
+  thinMarkerButton.id = "";
 });

@@ -85,3 +85,7 @@ canvas {
   border-radius: 30px;
   border: 1px solid #000;
 }
+
+#selectedTool {
+  background-color: #0080ff;
+}
