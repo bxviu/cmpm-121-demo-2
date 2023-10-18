@@ -26,6 +26,9 @@ const commands: LineCommand[] = [];
 const redoCommands: LineCommand[] = [];
 let currentLineCommand: LineCommand | undefined = undefined;
 const drawEvent = new Event("drawing-changed");
+const toolEvent = new Event("tool-moved");
+
+let cursorCommand: CursorCommand | null = null;
 
 const thinMarkerVal = 1;
 const thickMarkerVal = 4;
@@ -42,10 +45,11 @@ class LineCommand {
     context.strokeStyle = "black";
     context.lineWidth = this.thickness;
     context.beginPath();
-    const { x, y } = this.points[0];
+    const [initialPoint, ...otherPoints] = this.points;
+    const { x, y } = initialPoint;
     context.moveTo(x!, y!);
-    for (const { x, y } of this.points) {
-      context.lineTo(x!, y!);
+    for (const { x, y } of otherPoints) {
+      context.lineTo(x, y);
     }
     context.stroke();
   }
@@ -54,10 +58,33 @@ class LineCommand {
   }
 }
 
+class CursorCommand {
+  x: number;
+  y: number;
+  constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+  draw(context: CanvasRenderingContext2D) {
+    context.lineWidth = thinMarkerVal;
+    context.beginPath();
+    context.arc(
+      this.x,
+      this.y,
+      currentThickness == thinMarkerVal ? currentThickness : 2,
+      0,
+      2 * Math.PI
+    );
+    context.stroke();
+    context.fill();
+  }
+}
+
 drawingArea.addEventListener("mousedown", (e) => {
   cursor.active = true;
   cursor.x = e.offsetX;
   cursor.y = e.offsetY;
+  cursorCommand = null;
   currentLineCommand = new LineCommand(e.offsetX, e.offsetY, currentThickness);
   commands.push(currentLineCommand);
   redoCommands.splice(0, redoCommands.length);
@@ -69,8 +96,10 @@ drawingArea.addEventListener("mousemove", (e) => {
     cursor.x = e.offsetX;
     cursor.y = e.offsetY;
     currentLineCommand!.drag(cursor.x, cursor.y);
-    drawingArea.dispatchEvent(drawEvent);
+  } else {
+    cursorCommand = new CursorCommand(e.offsetX, e.offsetY);
   }
+  drawingArea.dispatchEvent(toolEvent);
 });
 
 drawingArea.addEventListener("mouseup", () => {
@@ -79,10 +108,26 @@ drawingArea.addEventListener("mouseup", () => {
   drawingArea.dispatchEvent(drawEvent);
 });
 
-drawingArea.addEventListener("drawing-changed", () => {
+drawingArea.addEventListener("mouseenter", (e) => {
+  cursorCommand = new CursorCommand(e.offsetX, e.offsetY);
+  drawingArea.dispatchEvent(toolEvent);
+});
+
+drawingArea.addEventListener("mouseout", () => {
+  cursorCommand = null;
+  drawingArea.dispatchEvent(toolEvent);
+});
+
+drawingArea.addEventListener("drawing-changed", () => redraw());
+drawingArea.addEventListener("tool-moved", () => redraw());
+
+function redraw() {
   ctx.clearRect(origin, origin, drawingArea.width, drawingArea.height);
   commands.forEach((cmd) => cmd.display(ctx));
-});
+  if (cursorCommand) {
+    cursorCommand.draw(ctx);
+  }
+}
 
 const menu = document.createElement("div");
 app.append(menu);
@@ -101,7 +146,7 @@ const undoButton = document.createElement("button");
 undoButton.innerHTML = "undo";
 menu.append(undoButton);
 undoButton.addEventListener("click", () => {
-  if (commands.length > 0) {
+  if (commands.length) {
     redoCommands.push(commands.pop()!);
     drawingArea.dispatchEvent(drawEvent);
   }
@@ -111,7 +156,7 @@ const redoButton = document.createElement("button");
 redoButton.innerHTML = "redo";
 menu.append(redoButton);
 redoButton.addEventListener("click", () => {
-  if (redoCommands.length > 0) {
+  if (redoCommands.length) {
     commands.push(redoCommands.pop()!);
     drawingArea.dispatchEvent(drawEvent);
   }
