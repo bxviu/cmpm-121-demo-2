@@ -84,8 +84,14 @@ canvas {
   filter: drop-shadow(10px 15px 4px #111112);
   border-radius: 30px;
   border: 1px solid #000;
+  cursor: none;
 }
 
 #selectedTool {
-  background-color: #0080ff;
+  opacity: 0.5;
+  background: #0080ff;
+}
+
+.stickerPreview {
+  stroke-opacity: 0.3;
 }

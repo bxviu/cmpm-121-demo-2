@@ -22,13 +22,13 @@ app.append(drawingArea);
 
 const cursor = { active: false, x: origin, y: origin };
 
-const commands: LineCommand[] = [];
-const redoCommands: LineCommand[] = [];
+const commands: (LineCommand | StickerCommand)[] = [];
+const redoCommands: (LineCommand | StickerCommand)[] = [];
 let currentLineCommand: LineCommand | undefined = undefined;
 const drawEvent = new Event("drawing-changed");
 const toolEvent = new Event("tool-moved");
 
-let cursorCommand: CursorCommand | null = null;
+let cursorCommand: CursorCommand | StickerCommand | null = null;
 
 const thinMarkerVal = 1;
 const thickMarkerVal = 4;
@@ -65,7 +65,7 @@ class CursorCommand {
     this.x = x;
     this.y = y;
   }
-  draw(context: CanvasRenderingContext2D) {
+  display(context: CanvasRenderingContext2D) {
     context.lineWidth = thinMarkerVal;
     context.beginPath();
     context.arc(
@@ -84,6 +84,9 @@ drawingArea.addEventListener("mousedown", (e) => {
   cursor.active = true;
   cursor.x = e.offsetX;
   cursor.y = e.offsetY;
+  if (stickers.some((sticker) => sticker.htmlData!.button!.id)) {
+    return;
+  }
   cursorCommand = null;
   currentLineCommand = new LineCommand(e.offsetX, e.offsetY, currentThickness);
   commands.push(currentLineCommand);
@@ -92,9 +95,15 @@ drawingArea.addEventListener("mousedown", (e) => {
 });
 
 drawingArea.addEventListener("mousemove", (e) => {
-  if (cursor.active) {
-    cursor.x = e.offsetX;
-    cursor.y = e.offsetY;
+  cursor.x = e.offsetX;
+  cursor.y = e.offsetY;
+  if (stickers.some((sticker) => sticker.htmlData!.button!.id)) {
+    stickers.forEach((s) => {
+      if (s.htmlData!.button!.id) {
+        cursorCommand = new StickerCommand(e.offsetX, e.offsetY, s.visual);
+      }
+    });
+  } else if (cursor.active) {
     currentLineCommand!.drag(cursor.x, cursor.y);
   } else {
     cursorCommand = new CursorCommand(e.offsetX, e.offsetY);
@@ -102,14 +111,29 @@ drawingArea.addEventListener("mousemove", (e) => {
   drawingArea.dispatchEvent(toolEvent);
 });
 
-drawingArea.addEventListener("mouseup", () => {
+drawingArea.addEventListener("mouseup", (e) => {
+  if (stickers.some((sticker) => sticker.htmlData!.button!.id)) {
+    stickers.forEach((s) => {
+      if (s.htmlData!.button!.id) {
+        commands.push(new StickerCommand(e.offsetX, e.offsetY, s.visual));
+      }
+    });
+  }
   cursor.active = false;
   currentLineCommand = undefined;
   drawingArea.dispatchEvent(drawEvent);
 });
 
 drawingArea.addEventListener("mouseenter", (e) => {
-  cursorCommand = new CursorCommand(e.offsetX, e.offsetY);
+  if (stickers.some((sticker) => sticker.htmlData!.button!.id)) {
+    stickers.forEach((s) => {
+      if (s.htmlData!.button!.id) {
+        cursorCommand = new StickerCommand(e.offsetX, e.offsetY, s.visual);
+      }
+    });
+  } else {
+    cursorCommand = new CursorCommand(e.offsetX, e.offsetY);
+  }
   drawingArea.dispatchEvent(toolEvent);
 });
 
@@ -125,15 +149,17 @@ function redraw() {
   ctx.clearRect(origin, origin, drawingArea.width, drawingArea.height);
   commands.forEach((cmd) => cmd.display(ctx));
   if (cursorCommand) {
-    cursorCommand.draw(ctx);
+    ctx.globalAlpha = 0.5;
+    cursorCommand.display(ctx);
   }
+  ctx.globalAlpha = 1;
 }
 
 const menu = document.createElement("div");
 app.append(menu);
 
 const clearButton = document.createElement("button");
-clearButton.innerHTML = "clear";
+clearButton.innerHTML = "Clear";
 menu.append(clearButton);
 
 clearButton.addEventListener("click", () => {
@@ -143,7 +169,7 @@ clearButton.addEventListener("click", () => {
 });
 
 const undoButton = document.createElement("button");
-undoButton.innerHTML = "undo";
+undoButton.innerHTML = "Undo";
 menu.append(undoButton);
 undoButton.addEventListener("click", () => {
   if (commands.length) {
@@ -153,7 +179,7 @@ undoButton.addEventListener("click", () => {
 });
 
 const redoButton = document.createElement("button");
-redoButton.innerHTML = "redo";
+redoButton.innerHTML = "Redo";
 menu.append(redoButton);
 redoButton.addEventListener("click", () => {
   if (redoCommands.length) {
@@ -179,4 +205,57 @@ thickMarkerButton.addEventListener("click", () => {
   currentThickness = thickMarkerVal;
   thickMarkerButton.id = "selectedTool";
   thinMarkerButton.id = "";
+});
+
+class StickerCommand {
+  x: number;
+  y: number;
+  sticker: string;
+  constructor(x: number, y: number, sticker: string) {
+    this.x = x;
+    this.y = y;
+    this.sticker = sticker;
+  }
+  display(context: CanvasRenderingContext2D) {
+    context.lineWidth = thinMarkerVal;
+    context.beginPath();
+    ctx.font = "32px monospace";
+    ctx.fillText(this.sticker, this.x - 20, this.y + 10);
+    context.stroke();
+  }
+  drag(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+}
+
+interface Stickers {
+  visual: string;
+  htmlData?: {
+    button?: HTMLButtonElement;
+  };
+}
+
+const stickers: Stickers[] = [
+  { visual: "🍏" },
+  { visual: "😬" },
+  { visual: "�" },
+];
+
+stickers.forEach((s) => {
+  const stickersButton = document.createElement("button");
+  stickersButton.innerHTML = s.visual;
+  stickersButton.addEventListener("click", () => {
+    if (stickersButton.id) {
+      stickersButton.id = "";
+    } else {
+      stickers.forEach((ss) => {
+        ss.htmlData!.button!.id = "";
+      });
+      stickersButton.id = "selectedTool";
+    }
+    drawingArea.dispatchEvent(toolEvent);
+  });
+  s.htmlData = { button: stickersButton };
+  menu.append(stickersButton);
 });
