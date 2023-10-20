@@ -156,6 +156,7 @@ function redraw() {
 }
 
 const menu = document.createElement("div");
+menu.id = "menu";
 app.append(menu);
 
 const clearButton = document.createElement("button");
@@ -229,22 +230,44 @@ class StickerCommand {
   }
 }
 
-interface Stickers {
+interface Sticker {
   visual: string;
   htmlData?: {
     button?: HTMLButtonElement;
   };
 }
 
-const stickers: Stickers[] = [
+const stickers: Sticker[] = [
   { visual: "🍏" },
   { visual: "😬" },
   { visual: "�" },
 ];
 
+const customStickerButton = document.createElement("button");
+customStickerButton.innerHTML = "Add Sticker";
+customStickerButton.addEventListener("click", () => {
+  const text = prompt("Custom sticker text", "^o^");
+  if (!text) {
+    alert("No sticker added due to lack of text.");
+    return;
+  }
+  if (stickers.some((sticker) => sticker.visual == text)) {
+    alert("Sticker already exists.");
+    return;
+  }
+  const newSticker = { visual: text } as Sticker;
+  stickers.push(newSticker);
+  newSticker.htmlData = { button: createStickerButton(newSticker.visual) };
+});
+menu.append(customStickerButton);
+
 stickers.forEach((s) => {
+  s.htmlData = { button: createStickerButton(s.visual) };
+});
+
+function createStickerButton(visual: string) {
   const stickersButton = document.createElement("button");
-  stickersButton.innerHTML = s.visual;
+  stickersButton.innerHTML = visual;
   stickersButton.addEventListener("click", () => {
     if (stickersButton.id) {
       stickersButton.id = "";
@@ -256,6 +279,6 @@ stickers.forEach((s) => {
     }
     drawingArea.dispatchEvent(toolEvent);
   });
-  s.htmlData = { button: stickersButton };
   menu.append(stickersButton);
-});
+  return stickersButton;
+}
