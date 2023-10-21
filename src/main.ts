@@ -25,8 +25,12 @@ const cursor = { active: false, x: origin, y: origin };
 const commands: (LineCommand | StickerCommand)[] = [];
 const redoCommands: (LineCommand | StickerCommand)[] = [];
 let currentLineCommand: LineCommand | undefined = undefined;
-const drawEvent = new Event("drawing-changed");
-const toolEvent = new Event("tool-moved");
+const drawEvent = new CustomEvent("drawing-changed");
+const toolEvent = new CustomEvent("tool-moved", {
+  detail: {
+    preview: true,
+  },
+});
 
 let cursorCommand: CursorCommand | StickerCommand | null = null;
 
@@ -143,6 +147,7 @@ drawingArea.addEventListener("mouseout", () => {
 });
 
 drawingArea.addEventListener("drawing-changed", () => redraw());
+
 drawingArea.addEventListener("tool-moved", () => redraw());
 
 function redraw() {
@@ -208,20 +213,41 @@ thickMarkerButton.addEventListener("click", () => {
   thinMarkerButton.id = "";
 });
 
+const exportButton = document.createElement("button");
+exportButton.innerHTML = "Export";
+menu.append(exportButton);
+exportButton.addEventListener("click", () => {
+  const bigCanvas = document.createElement("canvas");
+  bigCanvas.id = "canvas";
+  const exportSize = 1024;
+  bigCanvas.height = exportSize;
+  bigCanvas.width = exportSize;
+  const bigctx = bigCanvas.getContext("2d");
+  bigctx!.clearRect(origin, origin, bigCanvas.width, bigCanvas.height);
+  bigctx!.scale(4, 4);
+  commands.forEach((cmd) => {
+    cmd.display(bigctx!);
+  });
+  const anchor = document.createElement("a");
+  anchor.href = bigCanvas.toDataURL("image/png");
+  anchor.download = "sketchpad.png";
+  anchor.click();
+});
+
 class StickerCommand {
   x: number;
   y: number;
   sticker: string;
   constructor(x: number, y: number, sticker: string) {
-    this.x = x;
-    this.y = y;
+    this.x = x - 20;
+    this.y = y + 10;
     this.sticker = sticker;
   }
   display(context: CanvasRenderingContext2D) {
     context.lineWidth = thinMarkerVal;
     context.beginPath();
-    ctx.font = "32px monospace";
-    ctx.fillText(this.sticker, this.x - 20, this.y + 10);
+    context.font = "32px monospace";
+    context.fillText(this.sticker, this.x - 20, this.y + 10);
     context.stroke();
   }
   drag(x: number, y: number) {
