@@ -52,9 +52,6 @@ class LineCommand {
     this.colorVal = parseInt(rangeSelector.value) * (255 / 100);
   }
   display(context: CanvasRenderingContext2D) {
-    // context.strokeStyle = `rgb(${parseInt(rangeSelector.value) * (255 / 100)},
-    //   ${Math.abs((parseInt(rangeSelector.value) - 33) % 255) * (255 / 100)},
-    //   ${Math.abs((parseInt(rangeSelector.value) + 85) % 255) * (255 / 100)})`;
     context.strokeStyle = `hsl(${this.colorVal}, 100%, 50%)`;
     context.lineWidth = this.thickness;
     context.beginPath();
@@ -228,6 +225,44 @@ thickMarkerButton.addEventListener("click", () => {
 
 const exportButton = createMenuButton("Export");
 exportButton.addEventListener("click", () => {
+  // create dialog which asks user if they want a white or transparent background
+  const dialog = document.createElement("dialog");
+  dialog.id = "exportDialog";
+  document.body.append(dialog);
+  dialog.showModal();
+  dialog.innerHTML = `<form>
+    <label for="background">Background:</label>
+    <select name="background" id="background">
+      <option value="white">White</option>
+      <option value="transparent">Transparent</option>
+    </select>
+    <button value="cancel" formmethod="dialog">Cancel</button>
+    <button id="confirmBtn" value="default">Confirm</button>
+  </form>`;
+  let background = "";
+  dialog
+    .querySelector<HTMLButtonElement>("#confirmBtn")!
+    .addEventListener("click", () => {
+      background =
+        dialog.querySelector<HTMLSelectElement>("#background")!.value;
+    });
+  dialog
+    .querySelector<HTMLButtonElement>("button[value='cancel']")!
+    .addEventListener("click", () => {
+      background = "";
+    });
+  dialog
+    .querySelector<HTMLFormElement>("form")!
+    .addEventListener("submit", (e) => {
+      e.preventDefault();
+      dialog.close();
+      if (background == "white" || background == "transparent") {
+        exportImage(background);
+      }
+    });
+});
+
+function exportImage(background: string) {
   const bigCanvas = document.createElement("canvas");
   bigCanvas.id = "canvas";
   const exportSize = 1024;
@@ -240,6 +275,15 @@ exportButton.addEventListener("click", () => {
     bigCanvas.width,
     bigCanvas.height
   );
+  if (background == "white") {
+    bigctx!.fillStyle = "white";
+    bigctx!.fillRect(
+      startingNum,
+      startingNum,
+      bigCanvas.width,
+      bigCanvas.height
+    );
+  }
   bigctx!.scale(4, 4);
   commands.forEach((cmd) => {
     cmd.display(bigctx!);
@@ -248,7 +292,7 @@ exportButton.addEventListener("click", () => {
   anchor.href = bigCanvas.toDataURL("image/png");
   anchor.download = "sketchpad.png";
   anchor.click();
-});
+}
 
 class StickerCommand {
   x: number;
@@ -260,7 +304,6 @@ class StickerCommand {
     this.y = y + 10;
     this.sticker = sticker;
     this.rotationVal = parseInt(rangeSelector.value) * (360 / 100);
-    console.log(this.rotationVal);
   }
   display(context: CanvasRenderingContext2D) {
     context.save();
