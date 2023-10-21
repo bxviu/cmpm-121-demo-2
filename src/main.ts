@@ -24,6 +24,10 @@ app.append(historyMenu);
 
 app.append(drawingArea);
 
+const rangeMenu = document.createElement("div");
+rangeMenu.id = "rangeMenu";
+app.append(rangeMenu);
+
 const cursor = { active: false, x: startingNum, y: startingNum };
 
 const commands: (LineCommand | StickerCommand)[] = [];
@@ -41,12 +45,17 @@ let currentThickness = thinMarkerVal;
 class LineCommand {
   points: [{ x?: number; y?: number }];
   thickness: number;
+  colorVal: number;
   constructor(x: number, y: number, thickness = thinMarkerVal) {
     this.points = [{ x, y }];
     this.thickness = thickness;
+    this.colorVal = parseInt(rangeSelector.value) * (255 / 100);
   }
   display(context: CanvasRenderingContext2D) {
-    context.strokeStyle = "black";
+    // context.strokeStyle = `rgb(${parseInt(rangeSelector.value) * (255 / 100)},
+    //   ${Math.abs((parseInt(rangeSelector.value) - 33) % 255) * (255 / 100)},
+    //   ${Math.abs((parseInt(rangeSelector.value) + 85) % 255) * (255 / 100)})`;
+    context.strokeStyle = `hsl(${this.colorVal}, 100%, 50%)`;
     context.lineWidth = this.thickness;
     context.beginPath();
     const [initialPoint, ...otherPoints] = this.points;
@@ -245,17 +254,23 @@ class StickerCommand {
   x: number;
   y: number;
   sticker: string;
+  rotationVal: number;
   constructor(x: number, y: number, sticker: string) {
     this.x = x - 20;
     this.y = y + 10;
     this.sticker = sticker;
+    this.rotationVal = parseInt(rangeSelector.value) * (360 / 100);
+    console.log(this.rotationVal);
   }
   display(context: CanvasRenderingContext2D) {
-    context.lineWidth = thinMarkerVal;
-    context.beginPath();
+    context.save();
+    context.translate(this.x, this.y);
+    context.rotate((this.rotationVal * Math.PI) / 180);
     context.font = "18px monospace";
-    context.fillText(this.sticker, this.x - 20, this.y + 10);
+    context.fillText(this.sticker, startingNum, startingNum);
+    context.beginPath();
     context.stroke();
+    context.restore();
   }
   drag(x: number, y: number) {
     this.x = x;
@@ -318,6 +333,13 @@ function selectTool(selected: HTMLButtonElement) {
   });
   selected.id = "selectedTool";
 }
+
+const rangeSelector = document.createElement("input");
+rangeSelector.type = "range";
+rangeSelector.addEventListener("input", () => {
+  rangeSelector.value;
+});
+rangeMenu.append(rangeSelector);
 
 // so I can decide where the buttons are on the page
 function buttonPlacement() {
