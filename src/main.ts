@@ -2,7 +2,7 @@ import "./style.css";
 
 const app: HTMLDivElement = document.querySelector("#app")!;
 
-const gameName = "Colorful? Canvas";
+const gameName = "Canvasticker";
 
 document.title = gameName;
 
@@ -12,25 +12,25 @@ app.append(header);
 
 const drawingArea = document.createElement("canvas");
 const dimension = 256;
-const origin = 0;
+const startingNum = 0;
 drawingArea.width = dimension;
 drawingArea.height = dimension;
 
 const ctx = drawingArea.getContext("2d")!;
 
+const historyMenu = document.createElement("div");
+historyMenu.id = "histMenu";
+app.append(historyMenu);
+
 app.append(drawingArea);
 
-const cursor = { active: false, x: origin, y: origin };
+const cursor = { active: false, x: startingNum, y: startingNum };
 
 const commands: (LineCommand | StickerCommand)[] = [];
 const redoCommands: (LineCommand | StickerCommand)[] = [];
 let currentLineCommand: LineCommand | undefined = undefined;
 const drawEvent = new CustomEvent("drawing-changed");
-const toolEvent = new CustomEvent("tool-moved", {
-  detail: {
-    preview: true,
-  },
-});
+const toolEvent = new CustomEvent("tool-moved");
 
 let cursorCommand: CursorCommand | StickerCommand | null = null;
 
@@ -85,16 +85,16 @@ class CursorCommand {
 }
 
 drawingArea.addEventListener("mousedown", (e) => {
-  cursor.active = true;
-  cursor.x = e.offsetX;
-  cursor.y = e.offsetY;
   if (stickers.some((sticker) => sticker.htmlData!.button!.id)) {
     return;
   }
+  cursor.active = true;
+  cursor.x = e.offsetX;
+  cursor.y = e.offsetY;
   cursorCommand = null;
   currentLineCommand = new LineCommand(e.offsetX, e.offsetY, currentThickness);
   commands.push(currentLineCommand);
-  redoCommands.splice(0, redoCommands.length);
+  redoCommands.splice(startingNum, redoCommands.length);
   drawingArea.dispatchEvent(drawEvent);
 });
 
@@ -147,11 +147,15 @@ drawingArea.addEventListener("mouseout", () => {
 });
 
 drawingArea.addEventListener("drawing-changed", () => redraw());
-
 drawingArea.addEventListener("tool-moved", () => redraw());
 
 function redraw() {
-  ctx.clearRect(origin, origin, drawingArea.width, drawingArea.height);
+  ctx.clearRect(
+    startingNum,
+    startingNum,
+    drawingArea.width,
+    drawingArea.height
+  );
   commands.forEach((cmd) => cmd.display(ctx));
   if (cursorCommand) {
     ctx.globalAlpha = 0.5;
@@ -163,20 +167,28 @@ function redraw() {
 const menu = document.createElement("div");
 menu.id = "menu";
 app.append(menu);
+const menuButtons: HTMLButtonElement[] = [];
 
-const clearButton = document.createElement("button");
-clearButton.innerHTML = "Clear";
-menu.append(clearButton);
+function createMenuButton(text: string) {
+  const button = document.createElement("button");
+  button.innerHTML = text;
+  menuButtons.push(button);
+  return button;
+}
 
+const clearButton = createMenuButton("Clear");
 clearButton.addEventListener("click", () => {
-  commands.splice(0, commands.length);
-  redoCommands.splice(0, redoCommands.length);
-  ctx.clearRect(origin, origin, drawingArea.width, drawingArea.height);
+  commands.splice(startingNum, commands.length);
+  redoCommands.splice(startingNum, redoCommands.length);
+  ctx.clearRect(
+    startingNum,
+    startingNum,
+    drawingArea.width,
+    drawingArea.height
+  );
 });
 
-const undoButton = document.createElement("button");
-undoButton.innerHTML = "Undo";
-menu.append(undoButton);
+const undoButton = createMenuButton("Undo");
 undoButton.addEventListener("click", () => {
   if (commands.length) {
     redoCommands.push(commands.pop()!);
@@ -184,9 +196,7 @@ undoButton.addEventListener("click", () => {
   }
 });
 
-const redoButton = document.createElement("button");
-redoButton.innerHTML = "Redo";
-menu.append(redoButton);
+const redoButton = createMenuButton("Redo");
 redoButton.addEventListener("click", () => {
   if (redoCommands.length) {
     commands.push(redoCommands.pop()!);
@@ -194,28 +204,20 @@ redoButton.addEventListener("click", () => {
   }
 });
 
-const thinMarkerButton = document.createElement("button");
-thinMarkerButton.innerHTML = "Thin";
+const thinMarkerButton = createMenuButton("Thin");
 thinMarkerButton.id = "selectedTool";
-menu.append(thinMarkerButton);
 thinMarkerButton.addEventListener("click", () => {
   currentThickness = thinMarkerVal;
-  thinMarkerButton.id = "selectedTool";
-  thickMarkerButton.id = "";
+  selectTool(thinMarkerButton);
 });
 
-const thickMarkerButton = document.createElement("button");
-thickMarkerButton.innerHTML = "Thick";
-menu.append(thickMarkerButton);
+const thickMarkerButton = createMenuButton("Thick");
 thickMarkerButton.addEventListener("click", () => {
   currentThickness = thickMarkerVal;
-  thickMarkerButton.id = "selectedTool";
-  thinMarkerButton.id = "";
+  selectTool(thickMarkerButton);
 });
 
-const exportButton = document.createElement("button");
-exportButton.innerHTML = "Export";
-menu.append(exportButton);
+const exportButton = createMenuButton("Export");
 exportButton.addEventListener("click", () => {
   const bigCanvas = document.createElement("canvas");
   bigCanvas.id = "canvas";
@@ -223,7 +225,12 @@ exportButton.addEventListener("click", () => {
   bigCanvas.height = exportSize;
   bigCanvas.width = exportSize;
   const bigctx = bigCanvas.getContext("2d");
-  bigctx!.clearRect(origin, origin, bigCanvas.width, bigCanvas.height);
+  bigctx!.clearRect(
+    startingNum,
+    startingNum,
+    bigCanvas.width,
+    bigCanvas.height
+  );
   bigctx!.scale(4, 4);
   commands.forEach((cmd) => {
     cmd.display(bigctx!);
@@ -246,7 +253,7 @@ class StickerCommand {
   display(context: CanvasRenderingContext2D) {
     context.lineWidth = thinMarkerVal;
     context.beginPath();
-    context.font = "32px monospace";
+    context.font = "18px monospace";
     context.fillText(this.sticker, this.x - 20, this.y + 10);
     context.stroke();
   }
@@ -266,11 +273,17 @@ interface Sticker {
 const stickers: Sticker[] = [
   { visual: "🍏" },
   { visual: "😬" },
-  { visual: "�" },
+  { visual: "( ͡👁️ ͜ʖ ͡👁️)" },
+  { visual: "😎" },
+  { visual: "😂" },
+  { visual: "😘" },
+  { visual: "😍" },
+  { visual: "😉" },
+  { visual: "😄" },
+  { visual: "😜" },
 ];
 
-const customStickerButton = document.createElement("button");
-customStickerButton.innerHTML = "Add Sticker";
+const customStickerButton = createMenuButton("Add Sticker");
 customStickerButton.addEventListener("click", () => {
   const text = prompt("Custom sticker text", "^o^");
   if (!text) {
@@ -285,26 +298,39 @@ customStickerButton.addEventListener("click", () => {
   stickers.push(newSticker);
   newSticker.htmlData = { button: createStickerButton(newSticker.visual) };
 });
-menu.append(customStickerButton);
 
 stickers.forEach((s) => {
   s.htmlData = { button: createStickerButton(s.visual) };
 });
 
 function createStickerButton(visual: string) {
-  const stickersButton = document.createElement("button");
-  stickersButton.innerHTML = visual;
+  const stickersButton = createMenuButton(visual);
   stickersButton.addEventListener("click", () => {
-    if (stickersButton.id) {
-      stickersButton.id = "";
-    } else {
-      stickers.forEach((ss) => {
-        ss.htmlData!.button!.id = "";
-      });
-      stickersButton.id = "selectedTool";
-    }
+    selectTool(stickersButton);
     drawingArea.dispatchEvent(toolEvent);
   });
-  menu.append(stickersButton);
   return stickersButton;
 }
+
+function selectTool(selected: HTMLButtonElement) {
+  menuButtons.forEach((button) => {
+    button.id = "";
+  });
+  selected.id = "selectedTool";
+}
+
+// so I can decide where the buttons are on the page
+function buttonPlacement() {
+  historyMenu.append(clearButton);
+  historyMenu.append(undoButton);
+  historyMenu.append(redoButton);
+  historyMenu.append(exportButton);
+  menu.append(thinMarkerButton);
+  menu.append(thickMarkerButton);
+  historyMenu.append(customStickerButton);
+  stickers.forEach((sticker) => {
+    menu.append(sticker.htmlData!.button!);
+  });
+}
+
+buttonPlacement();
